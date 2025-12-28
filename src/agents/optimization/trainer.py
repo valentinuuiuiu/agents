@@ -306,7 +306,7 @@ class Trainer:
 
                 elif optimizer_name == "toolkit":
                     # TODO: toolkit optimizer
-                    solution = self.toolkit_optimizer.optimize(
+                    solution, op_status = self.toolkit_optimizer.optimize(
                         case_list, solution, save_step_path
                     )
 
