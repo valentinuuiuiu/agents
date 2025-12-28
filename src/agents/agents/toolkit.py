@@ -26,7 +26,9 @@ class Toolkit:
     def __init__(self, config: dict, **kwargs):
         self.config = config
         self.tools: Dict[str, Tool] = kwargs.get("tools", {})
-        self.tool_specifications: List[dict] = kwargs.get("tool_specifications", None)
+        self.tool_specifications: List[dict] = kwargs.get("tool_specifications", [])
+        if self.tool_specifications is None:
+            self.tool_specifications = []
 
     @classmethod
     def from_config(cls, config_path_or_dict):
@@ -77,3 +79,58 @@ class Toolkit:
     def generate_config():
         # generate the config (especially the prompts)
         pass
+
+    def remove_tool(self, tool_name: str) -> bool:
+        """Removes a tool from the toolkit."""
+        if tool_name in self.tools:
+            del self.tools[tool_name]
+            # Also remove from tool_specifications
+            if self.tool_specifications:
+                self.tool_specifications = [
+                    spec for spec in self.tool_specifications
+                    if spec['function']['name'] != tool_name
+                ]
+            return True
+        return False
+
+    def update_tool_description(self, tool_name: str, new_description: str) -> bool:
+        """Updates the description of an existing tool."""
+        if tool_name in self.tools:
+            self.tools[tool_name].description = new_description
+            # Update specification
+            if self.tool_specifications:
+                for spec in self.tool_specifications:
+                    if spec['function']['name'] == tool_name:
+                        spec['function']['description'] = new_description
+                        break
+            return True
+        return False
+
+    def add_tool(self, tool_name: str, tool_config: dict = None) -> bool:
+        """Adds a tool to the toolkit from AVAILABLE_TOOLS."""
+        if tool_name in self.tools:
+            return False # Already exists
+
+        if tool_name in AVAILABLE_TOOLS:
+             if tool_config is None:
+                 tool_config = {}
+             try:
+                 tool: Tool = AVAILABLE_TOOLS[tool_name](**tool_config)
+                 self.tools[tool_name] = tool
+
+                 spec = {
+                    "type": tool.type,
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                 }
+                 if self.tool_specifications is None:
+                     self.tool_specifications = []
+                 self.tool_specifications.append(spec)
+                 return True
+             except Exception as e:
+                 print(f"Error adding tool {tool_name}: {e}")
+                 return False
+        return False
