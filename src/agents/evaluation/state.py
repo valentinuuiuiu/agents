@@ -46,7 +46,7 @@ class State:
             "node_backward": self.node_backward.to_dict(),  # Records node's backward information, such as suggestions
             "node_eval": self.node_eval.to_dict(),  # Evaluation results for each node during SOP optimization
             "agent": self.agent.to_dict(self.node.node_name),
-            # "environment": self.environment.to_dict(),
+            "environment": self.environment.to_dict(),
         }
 
     def get_dict_for_trainer(self, keys: list):
@@ -105,12 +105,11 @@ class State:
         Returns:
             State: A State object.
         """
-        # FIXME: Environment load from json error
         return cls(
             Node(NodeConfig(state_json["node"])),
             Agent(AgentConfig(state_json["agent"])),
             Action(ActionConfig(state_json["action"])),
-            Environment.load_from_json(state_json["environment"])
+            Environment.load_from_json(state_json["environment"]),
         )
 
 

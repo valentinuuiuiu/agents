@@ -210,6 +210,7 @@ class LongTermMemory(Memory):
     def to_dict(self):
         return {
             "config": self.config,
+            "json_path": str(self.json_path),
             "memory": self.get_memory(),
         }
 
@@ -217,5 +218,6 @@ class LongTermMemory(Memory):
     def load_from_json(json_dict):
         return LongTermMemory(
             config=json_dict["config"],
+            json_path=json_dict["json_path"],
             chunk_list=json_dict["memory"],
         )

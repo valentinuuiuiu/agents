@@ -81,22 +81,23 @@ class Environment:
         pass
 
     def to_dict(self):
-        # FIXME: Environment to_dict error
         return {
+            "config": self.config.to_dict(),
             "environment_type": self.environment_type,
             "shared_memory": {
                 "summary": self.shared_memory["summary"],
                 "short_term_memory": self.shared_memory["short_term_memory"].to_dict(),
                 "long_term_memory": self.shared_memory["long_term_memory"].to_dict(),
             },
-            "shared_toolkit": self.shared_toolkit.to_dict(),
+            "shared_toolkit": self.shared_toolkit.to_dict()
+            if self.shared_toolkit
+            else None,
         }
 
     @staticmethod
     def load_from_json(json_data):
-        # FIXME: Environment load from json error
         # environment type 和 config通过原始加载方法就能导入
-        loaded_environment = Environment.from_config(json_data["config"])
+        loaded_environment = Environment(EnvironmentConfig(json_data["config"]))
 
         # 加载具体的memory
         loaded_environment.shared_memory["summary"] = json_data["shared_memory"][

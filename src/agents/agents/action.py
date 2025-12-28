@@ -120,6 +120,9 @@ class Action:
             "last_prompt": self.last_prompt,
             "history_messages": self.history_messages,
             "tools_results_dict": self.tools_results_dict,
+            "response": self.response_json
+            if self.response_json
+            else self.response,  # compatible with ActionConfig
             "response_json": self.response_json,
             "token_usage": self.token_usage,
             "latency": self.latency,
