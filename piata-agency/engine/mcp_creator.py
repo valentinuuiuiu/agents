@@ -362,12 +362,26 @@ class MCPCreator:
         self._disk_registry[func_id] = meta
         self._save_registry()
 
-        # Hot-register into the central ToolRegistry
-        registered = await self._hot_register(meta, code, timeout_seconds)
+        # Hot-register into the central ToolRegistry. Do not leave a tool
+        # advertised as created when compilation/registration failed: remove
+        # the persisted source and metadata so the next attempt is clean.
+        try:
+            registered = await self._hot_register(meta, code, timeout_seconds)
+        except Exception as e:
+            logger.exception("mcp_creator: hot-registration raised for %s", name)
+            registered = False
         if not registered:
-            logger.warning(f"mcp_creator: tool {name} saved but hot-register failed")
+            self._disk_registry.pop(func_id, None)
+            try:
+                source_path.unlink(missing_ok=True)
+            except Exception:
+                logger.warning("mcp_creator: failed to remove invalid tool source %s", source_path)
+            self._save_registry()
+            logger.warning("mcp_creator: tool %s rejected during hot-register", name)
+            return {"error": "Tool failed hot-registration", "name": name,
+                    "registered": False, "status": "rejected"}
         return {"func_id": func_id, "name": name, "file": str(source_path),
-                "registered": registered, "code": code, "status": "created"}
+                "registered": True, "code": code, "status": "created"}
 
     async def _hot_register(self, meta: dict, code: str, timeout_seconds: int) -> bool:
         """Compile the generated code into a callable and register it."""
@@ -398,17 +412,27 @@ class MCPCreator:
             params_obj: Dict[str, Any] = {"type": "object", "properties": {}}
             for p, t in (meta["params"] or {}).items():
                 params_obj["properties"][p] = _map_param_type(t)
-            self.registry.register(
-                name=meta["name"],
-                description=meta["description"],
-                module="generated",
-                parameters=params_obj,
-                handler=_safe_handler,
-                is_async=True,
-                category=meta.get("category", "generated"),
-                emoji="🧬",
-                keywords=["generated", "mcp"],
-            )
+            previous = self.registry.tools.get(meta["name"])
+            try:
+                self.registry.register(
+                    name=meta["name"],
+                    description=meta["description"],
+                    module="generated",
+                    parameters=params_obj,
+                    handler=_safe_handler,
+                    is_async=True,
+                    category=meta.get("category", "generated"),
+                    emoji="🧬",
+                    keywords=["generated", "mcp"],
+                )
+            except Exception:
+                # Restore the previous definition (if any) so a failed
+                # registration cannot leave a half-updated central registry.
+                if previous is None:
+                    self.registry.tools.pop(meta["name"], None)
+                else:
+                    self.registry.tools[meta["name"]] = previous
+                raise
         return True
 
     def list_tools(self) -> List[dict]:

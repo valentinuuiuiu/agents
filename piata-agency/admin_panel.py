@@ -25,7 +25,17 @@ ADMIN_USER = os.environ.get("ADMIN_USER", "ionut")
 ADMIN_PASS = os.environ.get("ADMIN_PASS")
 if not ADMIN_PASS:
     raise RuntimeError("ADMIN_PASS environment variable must be set in production (never hardcoded)")
-PG_CONN = os.environ.get("PG_CONN", "postgresql://postgres:postgres@localhost:5432/nexus_storage")
+# 2026-08-02: removed the silent `postgres:postgres@localhost:5432/...`
+# default. A leaked PIATA-AGENCY_ADMIN pointing at a misconfigured host
+# could let an attacker brute-force the default postgres install. Require
+# the env var explicitly.
+PG_CONN = os.environ.get("PG_CONN")
+if not PG_CONN:
+    raise RuntimeError(
+        "PG_CONN must be set in the environment. The pre-2026-08-02 default "
+        "(postgres:postgres@localhost) was removed to prevent the admin panel "
+        "from accidentally hitting an unauthenticated local Postgres install."
+    )
 LLM_PROXY = os.environ.get("LLM_PROXY", "http://127.0.0.1:8080")
 ADMIN_DIR = Path("/var/www/frontends/nexus-lab/public/admin")
 
