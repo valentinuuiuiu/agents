@@ -345,11 +345,23 @@ class ChatService:
             while True:
                 try:
                     await self.gc_conversations()
+                except asyncio.CancelledError:
+                    raise
                 except Exception:
                     logger.exception("conversation GC error")
                 await asyncio.sleep(60)
 
         self._gc_task = asyncio.ensure_future(_loop())
+
+    async def close(self):
+        """Cancel the background GC loop. Call from the server shutdown path."""
+        if self._gc_task is not None and not self._gc_task.done():
+            self._gc_task.cancel()
+            try:
+                await self._gc_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._gc_task = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create a long-lived aiohttp session (connection pooling)."""
@@ -417,6 +429,14 @@ class ChatService:
     async def _run_chat_impl(self, agent: Dict, message: str, history: List[Dict],
                              agent_id: str, log: bool) -> Dict:
         tools = parse_tools(agent.get("tools", ""))
+        # Scope the persistent memory tool to this agent so agents don't
+        # read/write each other's memories (set_agent_id feeds the module
+        # global in piata_tools.tools.memory used by memory_store/retrieve).
+        try:
+            from piata_tools.tools.memory import set_agent_id
+            set_agent_id(agent_id)
+        except Exception:
+            pass
         if log:
             # check_plan_limits lives in billing.py (not on AgentProvisioner).
             # Lazy import avoids any module-import-order coupling.

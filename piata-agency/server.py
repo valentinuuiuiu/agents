@@ -370,6 +370,8 @@ async def lifespan(app: FastAPI):
                 f"{len(registry.mcp_servers)} MCP servers")
     yield
     logger.info("Piata Agency shutting down")
+    if chat_service is not None:
+        await chat_service.close()
 
 
 app = FastAPI(
