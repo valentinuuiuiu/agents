@@ -1541,14 +1541,17 @@ async def dashboard():
     if "<base " not in html:
         base_tag = "<head>\n  <base href=\"./\">"
         html = html.replace("<head>", base_tag, 1)
-    # Inject Firebase config for Auth
+    # Firebase Auth Configuration — inject with the exact window.* names the
+    # dashboard JS reads (window.FIREBASE_API_KEY, window.FIREBASE_AUTH_DOMAIN,
+    # ...) so the env-driven config actually reaches the client instead of
+    # silently falling back to the hardcoded defaults in index.html.
     firebase_config = {
         "FIREBASE_API_KEY": os.environ.get("FIREBASE_API_KEY", ""),
         "FIREBASE_AUTH_DOMAIN": os.environ.get("FIREBASE_AUTH_DOMAIN", ""),
         "FIREBASE_PROJECT_ID": os.environ.get("FIREBASE_PROJECT_ID", ""),
         "FIREBASE_STORAGE_BUCKET": os.environ.get("FIREBASE_STORAGE_BUCKET", ""),
         "FIREBASE_MESSAGING_SENDER_ID": os.environ.get("FIREBASE_MESSAGING_SENDER_ID", ""),
-        "FIREBASE_APP_ID": os.environ.get("FIREBASE_APP_ID", ""),
+        "FIREBASE_APP_ID": os.environ.get("FIREBASE_APP_ID", "")
     }
     config_script = "<script>\n"
     for key, value in firebase_config.items():
