@@ -575,6 +575,37 @@ async def health():
     }
 
 
+@app.get("/api/agency/connectors")
+async def agency_connectors(_user: dict = Depends(get_current_user)):
+    """Proxy the Accio bridge connector catalog through same-origin.
+
+    The dashboard used to fetch http://127.0.0.1:4567 directly, but modern
+    Chrome blocks loopback fetches from public origins (Private Network
+    Access), so we proxy the bridge server-side instead.
+    """
+    async with httpx.AsyncClient(timeout=6) as client:
+        try:
+            r = await client.get("http://127.0.0.1:4567/api/connectors")
+            if r.status_code == 200:
+                return r.json()
+            return {"ok": False, "error": f"bridge HTTP {r.status_code}", "count": 0, "connectors": []}
+        except Exception as e:
+            return {"ok": False, "error": f"Accio bridge unreachable: {e}", "count": 0, "connectors": []}
+
+
+@app.get("/api/agency/connectors/{connector_id}/status")
+async def agency_connector_status(connector_id: str, _user: dict = Depends(get_current_user)):
+    """Proxy a single Accio connector status probe (same-origin)."""
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            r = await client.get(f"http://127.0.0.1:4567/api/connectors/{connector_id}/status")
+            if r.status_code == 200:
+                return r.json()
+            return {"ok": False, "error": f"bridge HTTP {r.status_code}"}
+        except Exception as e:
+            return {"ok": False, "error": f"Accio bridge unreachable: {e}"}
+
+
 @app.get("/api/agency/tools/health")
 async def tools_health():
     """Health check for all registered tools and MCP servers."""
@@ -1423,7 +1454,7 @@ async def webhook_chat(agent_id: str, token: str, req: WebhookRequest):
     if not message:
         raise HTTPException(400, "No message provided")
 
-    response = await chat_service.run_agent_chat(agent, message, agent_id=agent_id)
+    response = await chat_service.run_agent_chat(agent_id, message, agent=agent)
     return response
 
 

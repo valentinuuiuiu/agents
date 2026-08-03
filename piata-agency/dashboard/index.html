@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Piata Agency — Agent Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg-primary);z-index:3000;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="text-align:center">
+    <h1 style="font-size:28px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">⚡ Piata Agency</h1>
+    <p style="color:var(--text-secondary);margin-top:8px">Dashboard protected. Enter password to continue.</p>
+  </div>
+  <form id="login-form" style="width:320px;background:var(--bg-card);border:1px solid var(--border-primary);border-radius:var(--radius-lg);padding:24px">
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="admin@piata-ai.ro" value="admin@piata-ai.ro" autofocus>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••">
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Log in</button>
+    
+    <div style="margin:16px 0;text-align:center;color:var(--text-tertiary);font-size:12px">or</div>
+    
+    <button type="button" id="google-login-btn" class="btn btn-secondary" style="width:100%;justify-content:center;display:flex;align-items:center;gap:8px" onclick="firebaseLogin()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      <span>Sign in with Google</span>
+    </button>
+    
+    <p id="login-error" style="color:var(--danger);font-size:12px;margin-top:12px;text-align:center;display:none"></p>
+  </form>
+</div>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <h1>⚡ Piata Agency</h1>
+      <p>Agent-as-a-Service Platform</p>
+    </div>
+    <nav>
+      <a href="#" class="active" data-page="overview"><span class="icon">📊</span> Overview</a>
+      <a href="#" data-page="agents"><span class="icon">🤖</span> Agents</a>
+      <a href="#" data-page="personas"><span class="icon">🎭</span> Personas</a>
+      <a href="#" data-page="connectors"><span class="icon">🔌</span> Connectors</a>
+      <a href="#" data-page="provision"><span class="icon">➕</span> New Agent</a>
+      <a href="#" data-page="trading"><span class="icon">📈</span> Trading</a>
+      <a href="#" data-page="tools"><span class="icon">🔧</span> Tools Hub</a>
+      <a href="#" data-page="mcp"><span class="icon">🔌</span> MCP Servers</a>
+      <a href="#" data-page="logs"><span class="icon">📜</span> Activity Log</a>
+      <div class="nav-divider"></div>
+      <a href="https://n8n.piata-ai.ro" target="_blank"><span class="icon">⚙️</span> n8n Workflows <span style="font-size:10px;opacity:0.5">↗</span></a>
+      <a href="/openwebui/" target="_blank"><span class="icon">💬</span> OpenWebUI Chat <span style="font-size:10px;opacity:0.5">↗</span></a>
+    </nav>
+    <div class="status-bar">
+      <span class="dot"></span>
+      <span id="sidebar-status">System Online</span>
+    </div>
+  </div>
+
+  <!-- Mobile Header -->
+  <div class="mobile-header">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu" aria-expanded="false" id="hamburger-btn">☰</button>
+    <div class="mobile-logo">⚡ Piata Agency</div>
+  </div>
+
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- Main Content -->
+  <div class="main">
+
+    <!-- Overview Page -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <h2>Dashboard Overview</h2>
+        <p>Monitor your AI agent fleet at piata-ai.ro</p>
+      </div>
+      <div class="stats" id="stats-grid"></div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>🤖 Agent Fleet</h3>
+          <button class="btn btn-primary btn-sm" onclick="switchPage('provision')">+ New Agent</button>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Agent</th><th>ID</th><th>Tools</th><th>Status</th><th>Chats</th><th>PnL</th><th>Actions</th></tr></thead>
+            <tbody id="agents-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>🔌 MCP Server Status</h3>
+        </div>
+        <div class="panel-body">
+          <div class="mcp-grid" id="mcp-overview-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agents Page -->
+    <div class="page" id="page-agents">
+      <div class="page-header">
+        <h2>Agent Management</h2>
+        <p>View, manage, and test your AI agents</p>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <h3>All Agents</h3>
+          <div style="display:flex;gap:8px">
+            <select id="filter-status" onchange="loadAgents()" style="background:var(--bg-input);border:1px solid var(--border-primary);border-radius:var(--radius-md);padding:6px 10px;color:var(--text-primary);font-size:12px">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="stopped">Stopped</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="switchPage('provision')">+ New Agent</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Name</th><th>Agent ID</th><th>Purpose</th><th>Tools</th><th>Status</th><th>Payment</th><th>Chats</th><th>Trade Count</th><th>Webhook</th><th>Actions</th></tr></thead>
+            <tbody id="agents-detail-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Personas Page (Claude Code powered, signed PoW) -->
+    <div class="page" id="page-personas">
+      <div class="page-header">
+      <h2>🎭 Marketplace Personas</h2>
+      <p>Claude-Code-powered personas with live proof-of-work artifacts. Each runs real work against live systems (SQLite, agency API, Tailscale, public APIs).</p>
+      </div>
+
+      <div class="panel" id="personas-summary-panel">
+        <div class="panel-header">
+          <h3>Live Status — All <span id="personas-total">...</span></h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="personas-freshness"></span>
+            <button class="btn btn-sm" onclick="loadPersonas()">↻ Refresh</button>
+            <button class="btn btn-primary btn-sm" onclick="runAllPersonas()">▶ Run All Now</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="personas-summary"></div>
+          <table>
+            <thead><tr><th>Persona</th><th>Purpose</th><th>Latest PoW</th><th>Age</th><th>Sign</th><th>Run</th></tr></thead>
+            <tbody id="personas-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="persona-detail-panel" style="margin-top:18px">
+        <div class="panel-header">
+          <h3>Persona Detail</h3>
+          <span id="persona-detail-name" style="color:var(--text-secondary);font-size:12px"></span>
+        </div>
+        <div class="panel-body">
+          <div id="persona-detail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connectors Page (Accio Bridge) -->
+    <div class="page" id="page-connectors">
+      <div class="page-header">
+        <h2>🔌 Accio Connectors</h2>
+        <p>15 nanobot channels exposed via the Accio Bridge (port 4567), MCP server, and 15 N8N workflows (port 5678). Live senders: Telegram, Discord, Slack, Email — the rest are loaded with their SDK and ready to wire up.</p>
+      </div>
+
+      <div class="panel" id="connectors-summary-panel">
+        <div class="panel-header">
+          <h3>Channels &amp; Status</h3>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="connectors-freshness"></span>
+            <button class="btn btn-sm" onclick="loadConnectors()">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="connectors-summary"></div>
+          <table>
+            <thead><tr><th>Channel</th><th>Class</th><th>Enabled</th><th>Has creds</th><th>Live send</th><th>N8N</th><th>Probe</th></tr></thead>
+            <tbody id="connectors-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trading Page -->
+    <div class="page" id="page-trading">
+      <div class="page-header">
+        <h2>📈 Trading Dashboard</h2>
+        <p>Real-time market data and agent trading activity</p>
+      </div>
+
+      <div class="stats" id="trading-stats">
+        <div class="stat-card animate">
+          <div class="label">Portfolio Value</div>
+          <div class="value" id="portfolio-value">$0.00</div>
+          <div class="sub">Total assets under management</div>
+        </div>
+        <div class="stat-card animate">
+          <div class="label">24h PnL</div>
+          <div class="value" id="pnl-24h">$0.00</div>
+          <div class="sub" id="pnl-24h-pct">0.00%</div>
+        </div>
+        <div class="stat-card animate">
+          <div class="label">Active Positions</div>
+          <div class="value" id="active-positions">0</div>
+          <div class="sub">Open positions</div>
+        </div>
+        <div class="stat-card animate">
+          <div class="label">Total Trades</div>
+          <div class="value" id="total-trades">0</div>
+          <div class="sub">All time</div>
+        </div>
+      </div>
+
+      <div class="two-col-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <h3>📊 Order Book Depth</h3>
+          </div>
+          <div class="panel-body">
+            <div class="order-book">
+              <div class="asks" id="order-book-asks">
+                <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600">ASKS (Sell Orders)</div>
+              </div>
+              <div class="bids" id="order-book-bids">
+                <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600">BIDS (Buy Orders)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h3>💰 Agent PnL Leaderboard</h3>
+          </div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Agent</th><th>PnL</th><th>Status</th></tr></thead>
+              <tbody id="pnl-leaderboard"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>📈 Real-Time Price Tickers</h3>
+        </div>
+        <div class="panel-body">
+          <div id="price-tickers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Provision Page -->
+    <div class="page" id="page-provision">
+      <div class="page-header">
+        <h2>Create New Agent</h2>
+        <p>Provision a custom AI agent with MCP tools — get a webhook URL instantly</p>
+      </div>
+      <div class="panel">
+        <div class="panel-body">
+          <div class="two-col-grid">
+            <div>
+              <div class="form-group">
+                <label>Agent Name</label>
+                <input type="text" id="prov-name" placeholder="e.g. CryptoAnalyst, DataBot, SupportAgent">
+              </div>
+              <div class="form-group">
+                <label>Purpose</label>
+                <textarea id="prov-purpose" placeholder="What does this agent do? Be specific — this becomes the agent's core directive."></textarea>
+              </div>
+              <div class="form-group">
+                <label>LLM Model</label>
+                <select id="prov-model">
+                  <option value="openai/gpt-4o-mini">GPT-4o Mini (fast, cheap)</option>
+                  <option value="openai/gpt-4o">GPT-4o (powerful)</option>
+                  <option value="mimo-v2.5-pro">MiMo v2.5 Pro</option>
+                  <option value="big-pickle">Big Pickle</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Plan</label>
+                <select id="prov-plan" onchange="updatePlanPrice()">
+                  <option value="free">Free — test only</option>
+                  <option value="agent" selected>Agent ($20/mo)</option>
+                  <option value="pro">Pro ($80/mo)</option>
+                  <option value="enterprise">Enterprise ($200/mo)</option>
+                </select>
+                <div id="plan-price" style="margin-top:6px;font-size:12px;color:var(--text-secondary)">1 agent • 1,000 messages/mo • 29 tools</div>
+              </div>
+              <div class="form-group" id="billing-interval-group">
+                <label>Billing Interval</label>
+                <select id="prov-interval" onchange="updatePlanPrice()">
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly (2 months free)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Owner Email (optional)</label>
+                <input type="email" id="prov-email" placeholder="customer@example.com">
+              </div>
+              <div class="form-group">
+                <label>Custom System Prompt (optional)</label>
+                <textarea id="prov-prompt" placeholder="Override the auto-generated system prompt..."></textarea>
+              </div>
+            </div>
+            <div>
+              <div class="form-group">
+                <label>🔧 Select Tools</label>
+                <div class="tool-grid" id="tool-selection"></div>
+              </div>
+              <div class="form-group">
+                <label>🔌 MCP Servers (optional)</label>
+                <div id="mcp-selection" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right;margin-top:24px">
+            <button class="btn btn-primary" onclick="provisionAgent()" style="padding:12px 32px;font-size:14px">🚀 Create Agent</button>
+          </div>
+        </div>
+      </div>
+      <div class="provision-result" id="prov-result">
+        <h3>✅ Agent Created Successfully!</h3>
+        <div id="prov-result-content"></div>
+      </div>
+    </div>
+
+    <!-- Tools Hub Page -->
+    <div class="page" id="page-tools">
+      <div class="page-header">
+        <h2>Tools Hub</h2>
+        <p>All available tools agents can import via <code style="color:var(--accent)">from piata_tools import ...</code></p>
+      </div>
+      <div class="stats" id="tools-stats"></div>
+      <div class="panel">
+        <div class="panel-header"><h3>Available Tools</h3></div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Tool</th><th>Category</th><th>Description</th><th>Functions</th><th>MCP</th></tr></thead>
+            <tbody id="tools-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP Servers Page -->
+    <div class="page" id="page-mcp">
+      <div class="page-header">
+        <h2>MCP Servers</h2>
+        <p>Model Context Protocol servers providing specialized tools to agents</p>
+      </div>
+      <div class="mcp-grid" id="mcp-grid"></div>
+    </div>
+
+    <!-- Logs Page -->
+    <div class="page" id="page-logs">
+      <div class="page-header">
+        <h2>Activity Log</h2>
+        <p>Recent agent interactions and system events</p>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3>Recent Activity</h3></div>
+        <div class="panel-body" id="logs-content">
+          <p style="color:var(--text-tertiary)">Activity will appear here as agents process messages.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Chat Panel -->
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <h4 id="chat-agent-name">Chat with Agent</h4>
+    <button class="btn btn-ghost btn-sm" onclick="closeChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-input">
+    <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="btn btn-primary btn-sm" onclick="sendChat()">Send</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let currentAgent = null;
+let catalogData = null;
+let priceData = {};
+let orderBookData = { asks: [], bids: [] };
+let dashboardToken = localStorage.getItem('piata_dashboard_token') || null;
+
+// Navigation
+document.querySelectorAll('.sidebar nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    switchPage(a.dataset.page);
+  });
+});
+
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelector(`[data-page="${page}"]`).classList.add('active');
+  closeSidebar();
+  if (page === 'overview') loadOverview();
+  if (page === 'agents') loadAgents();
+  if (page === 'personas') loadPersonas();
+  if (page === 'connectors') loadConnectors();
+  if (page === 'tools' || page === 'provision') loadCatalog();
+  if (page === 'provision') loadPlans();
+  if (page === 'trading') loadTradingDashboard();
+}
+
+// Toast
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// API calls
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (dashboardToken) headers['X-Dashboard-Token'] = dashboardToken;
+  const resp = await fetch(API + path, {
+    headers,
+    ...opts,
+  });
+  if (resp.status === 401) {
+    showLogin();
+    throw new Error('Session expired — please log in again');
+  }
+  return resp.json();
+}
+
+// Auth
+function showLogin(error) {
+  const screen = document.getElementById('login-screen');
+  screen.style.display = 'flex';
+  document.querySelector('.app').style.display = 'none';
+  if (error) {
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = error;
+    errEl.style.display = 'block';
+  }
+}
+
+function showApp() {
+  const screen = document.getElementById('login-screen');
+  screen.style.display = 'none';
+  document.querySelector('.app').style.display = 'flex';
+}
+
+async function checkAuth() {
+  if (!dashboardToken) {
+    showLogin();
+    return false;
+  }
+  try {
+    const r = await fetch(API + '/api/auth/me', { headers: { 'X-Dashboard-Token': dashboardToken } });
+    if (r.ok) {
+      showApp();
+      return true;
+    }
+  } catch (e) {}
+  dashboardToken = null;
+  localStorage.removeItem('piata_dashboard_token');
+  showLogin();
+  return false;
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const r = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await r.json();
+    if (r.ok && data.token) {
+      dashboardToken = data.token;
+      localStorage.setItem('piata_dashboard_token', data.token);
+      showApp();
+      loadOverview();
+    } else {
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = data.detail || 'Login failed';
+      errEl.style.display = 'block';
+    }
+  } catch (e) {
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = 'Network error — ' + e.message;
+    errEl.style.display = 'block';
+  }
+});
+
+// Firebase Auth
+function firebaseLogin() {
+  // Load Firebase SDK if not already loaded
+  if (!window.firebase) {
+    const script = document.createElement('script');
+    script.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => loadFirebaseAuth();
+    document.head.appendChild(script);
+  } else {
+    loadFirebaseAuth();
+  }
+}
+
+function loadFirebaseAuth() {
+  if (window.firebaseAuthLoaded) return;
+  
+  const authScript = document.createElement('script');
+  authScript.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
+  authScript.async = true;
+  authScript.defer = true;
+  authScript.onload = () => initFirebaseAuth();
+  document.head.appendChild(authScript);
+}
+
+function initFirebaseAuth() {
+  if (window.firebaseAuthInitialized) return;
+  window.firebaseAuthInitialized = true;
+
+  // Firebase config from injected env
+  // Use the current hostname as authDomain so Google Sign-In works
+  var currentDomain = window.location.hostname;
+  var firebaseAuthDomain = window.FIREBASE_AUTH_DOMAIN || (currentDomain === 'localhost' ? 'gen-lang-client-0680189072.firebaseapp.com' : currentDomain);
+
+  var firebaseConfig = {
+    apiKey: window.FIREBASE_API_KEY || 'AIzaSyCjeLf8EJRLzcIauP9NqmXiYwtjZu1HbU8',
+    authDomain: firebaseAuthDomain,
+    projectId: window.FIREBASE_PROJECT_ID || 'gen-lang-client-0680189072',
+    storageBucket: window.FIREBASE_STORAGE_BUCKET || 'gen-lang-client-0680189072.firebasestorage.app',
+    messagingSenderId: window.FIREBASE_MESSAGING_SENDER_ID || '547869367227',
+    appId: window.FIREBASE_APP_ID || '1:547869367227:web:7844387dace98b3286429e'
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  window.firebaseAuth = firebase.auth();
+
+  // Configure Google provider
+  window.googleProvider = new firebase.auth.GoogleAuthProvider();
+  window.googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+  // Listen for redirect result (in case popup was blocked and we used redirect)
+  window.firebaseAuth.getRedirectResult().then(function(result) {
+    if (result && result.user) {
+      handleFirebaseUser(result.user);
+    }
+  }).catch(function(e) {
+    // Ignore — normal when no redirect pending
+  });
+
+  // Sign in with popup (falls back to redirect)
+  signInWithFirebase();
+}
+
+async function handleFirebaseUser(user) {
+  if (!user) return;
+  var idToken = await user.getIdToken();
+
+  var r = await fetch(API + '/api/auth/firebase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  var data = await r.json();
+  if (r.ok && data.token) {
+    dashboardToken = data.token;
+    localStorage.setItem('piata_dashboard_token', data.token);
+    showApp();
+    loadOverview();
+    toast('Welcome, ' + (data.email || 'User') + '!');
+  } else {
+    var errEl = document.getElementById('login-error');
+    errEl.textContent = data.detail || 'Firebase login failed';
+    errEl.style.display = 'block';
+  }
+}
+
+async function signInWithFirebase() {
+  try {
+    // Try popup first
+    var result = await window.firebaseAuth.signInWithPopup(window.googleProvider);
+    await handleFirebaseUser(result.user);
+  } catch (e) {
+    // If popup fails (blocked, unauthorized domain), try redirect
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' ||
+        e.code === 'auth/unauthorized-domain' || e.code === 'auth/cancelled-popup-request') {
+      try {
+        await window.firebaseAuth.signInWithRedirect(window.googleProvider);
+        // handleFirebaseUser will be called by getRedirectResult listener above
+      } catch (re) {
+        var errEl = document.getElementById('login-error');
+        errEl.textContent = 'Firebase sign-in failed: ' + re.message + '. Make sure ' + window.location.hostname + ' is an authorized domain in Firebase Console (Authentication → Settings → Authorized domains).';
+        errEl.style.display = 'block';
+      }
+    } else {
+      var errEl = document.getElementById('login-error');
+      errEl.textContent = 'Firebase sign-in failed: ' + e.message;
+      errEl.style.display = 'block';
+    }
+  }
+}
+
+// Load overview
+async function loadOverview() {
+  const [health, agents, personas] = await Promise.all([
+    api('/api/agency/health'),
+    api('/api/agency/agents'),
+    api('/api/agency/personas/all/status').catch(() => ({ count: 0, fresh_count: 0 })),
+  ]);
+
+  // Probe the Accio bridge (same-origin proxy) in parallel for a quick channel count
+  let accioCount = 0;
+  try {
+    const d = await api('/api/agency/connectors');
+    accioCount = d.count || 0;
+  } catch (e) { accioCount = 0; }
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card animate"><div class="label">Total Agents</div><div class="value">${agents.agents.length}</div><div class="sub">Provisioned on piata-ai.ro</div></div>
+    <div class="stat-card animate"><div class="label">Active</div><div class="value">${agents.agents.filter(a => a.status === 'active').length}</div><div class="sub">Currently serving requests</div></div>
+    <div class="stat-card animate"><div class="label">Personas</div><div class="value">${personas.count || 0}</div><div class="sub">${personas.fresh_count || 0} fresh • Claude Code powered</div></div>
+    <div class="stat-card animate"><div class="label">Connectors</div><div class="value">${accioCount}</div><div class="sub">Accio Bridge • 15 N8N workflows</div></div>
+    <div class="stat-card animate"><div class="label">Tools Available</div><div class="value">${health.tools}</div><div class="sub">MCP-powered tool functions</div></div>
+    <div class="stat-card animate"><div class="label">MCP Servers</div><div class="value">${health.mcp_servers}</div><div class="sub">Connected tool providers</div></div>
+    <div class="stat-card animate"><div class="label">Total Chats</div><div class="value">${agents.agents.reduce((s, a) => s + (a.chat_count || 0), 0)}</div><div class="sub">Messages processed</div></div>
+  `;
+
+  // Agents table with PnL and status indicators
+  document.getElementById('agents-table').innerHTML = agents.agents.map(a => {
+    const pnl = (a.pnl || 0).toFixed(2);
+    const pnlClass = pnl > 0 ? 'pnl-positive' : pnl < 0 ? 'pnl-negative' : 'pnl-neutral';
+    const statusClass = a.status === 'active' ? 'active' : a.status === 'paused' ? 'paused' : 'stopped';
+
+    return `
+      <tr>
+        <td><strong>${a.name}</strong></td>
+        <td style="font-family:monospace;font-size:11px;color:var(--text-tertiary)">${a.agent_id}</td>
+        <td>${(a.tools || []).map(t => `<span class="badge tool">${t}</span>`).join('')}</td>
+        <td><span class="status-indicator ${statusClass}">${a.status}</span></td>
+        <td>${a.chat_count || 0}</td>
+        <td class="${pnlClass}">${pnl > 0 ? '+' : ''}$${pnl}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="openChat('${a.agent_id}','${a.name}')">💬 Test</button>
+          ${a.status === 'active'
+            ? `<button class="btn btn-warning btn-sm" onclick="pauseAgent('${a.agent_id}')">⏸</button>`
+            : `<button class="btn btn-success btn-sm" onclick="resumeAgent('${a.agent_id}')">▶</button>`}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // MCP overview
+  const mcp = await api('/api/agency/catalog');
+  document.getElementById('mcp-overview-grid').innerHTML = (mcp.mcp_servers || []).map(s => `
+    <div class="mcp-card animate">
+      <div class="mcp-header">
+        <div class="icon">🔌</div>
+        <div class="name">${s.name || 'Unknown'}</div>
+      </div>
+      <div class="mcp-url">${s.url || s.command || 'N/A'}</div>
+      <div class="mcp-desc">${s.description || ''}</div>
+      <div class="mcp-status"><div class="dot" style="background:var(--success)"></div> Connected</div>
+    </div>
+  `).join('');
+}
+
+// Load agents page with trade count badges
+function paymentBadge(status) {
+  if (status === 'paid') return '<span class="status-indicator active" title="Payment received">💰 paid</span>';
+  if (status === 'pending') return '<span class="status-indicator paused" title="Waiting for payment">⏳ pending</span>';
+  if (status === 'canceled') return '<span class="status-indicator stopped" title="Checkout canceled">✕ canceled</span>';
+  if (status === 'expired') return '<span class="status-indicator stopped" title="Checkout expired">⌛ expired</span>';
+  return '<span class="status-indicator" style="opacity:0.5" title="No checkout created">—</span>';
+}
+
+async function loadAgents() {
+  const status = document.getElementById('filter-status').value;
+  const params = status ? `?status=${status}` : '';
+  const data = await api('/api/agency/agents' + params);
+
+  // Fetch payment status for each agent in parallel
+  const paymentStatuses = await Promise.all(
+    data.agents.map(a => api(`/api/agency/billing/status/${a.agent_id}`).catch(() => ({ status: 'none' })))
+  );
+
+  document.getElementById('agents-detail-table').innerHTML = data.agents.map((a, i) => {
+    const tradeCount = a.trade_count || 0;
+    const statusClass = a.status === 'active' ? 'active' : a.status === 'paused' ? 'paused' : 'stopped';
+    const payStatus = paymentStatuses[i]?.status || 'none';
+
+    return `
+      <tr>
+        <td><strong>${a.name}</strong></td>
+        <td style="font-family:monospace;font-size:11px;color:var(--text-tertiary)">${a.agent_id}</td>
+        <td style="max-width:200px;font-size:12px;color:var(--text-secondary)">${(a.purpose || '').substring(0, 80)}...</td>
+        <td>${(a.tools || []).map(t => `<span class="badge tool">${t}</span>`).join('')}</td>
+        <td><span class="status-indicator ${statusClass}">${a.status}</span></td>
+        <td>${paymentBadge(payStatus)}</td>
+        <td>${a.chat_count || 0}</td>
+        <td><span class="badge trade-count">${tradeCount} trades</span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="copyWebhook('${a.agent_id}')">📋 Copy</button></td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="openChat('${a.agent_id}','${a.name}')">💬</button>
+          ${a.status === 'active'
+            ? `<button class="btn btn-warning btn-sm" onclick="pauseAgent('${a.agent_id}')">⏸</button>`
+            : `<button class="btn btn-success btn-sm" onclick="resumeAgent('${a.agent_id}')">▶</button>`}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Load trading dashboard
+async function loadTradingDashboard() {
+  // Initialize price tickers
+  const tokens = ['BTC', 'ETH', 'SOL', 'LINK', 'DOT'];
+  document.getElementById('price-tickers').innerHTML = tokens.map(t => `
+    <div class="stat-card animate" id="price-${t}">
+      <div class="label">${t}/USD</div>
+      <div class="value" style="font-family:var(--font-mono);font-size:24px">$<span id="price-value-${t}">--</span></div>
+      <div class="sub"><span id="price-change-${t}" class="pnl-neutral">0.00%</span> 24h change</div>
+    </div>
+  `).join('');
+
+  // Start price simulation
+  startPriceSimulation(tokens);
+
+  // Initialize order book
+  updateOrderBook();
+
+  // Load PnL leaderboard
+  updatePnLLeaderboard();
+}
+
+// Price simulation with flash animations
+function startPriceSimulation(tokens) {
+  tokens.forEach(token => {
+    let price = Math.random() * 50000 + 1000;
+    priceData[token] = { current: price, prev: price, change: 0 };
+
+    // Update price every 2 seconds
+    setInterval(() => {
+      const oldPrice = priceData[token].current;
+      const change = (Math.random() - 0.5) * oldPrice * 0.02; // ±2% max change
+      const newPrice = oldPrice + change;
+      const pctChange = ((newPrice - oldPrice) / oldPrice * 100).toFixed(2);
+
+      priceData[token] = { current: newPrice, prev: oldPrice, change: pctChange };
+
+      const priceEl = document.getElementById(`price-value-${token}`);
+      const changeEl = document.getElementById(`price-change-${token}`);
+      const card = document.getElementById(`price-${token}`);
+
+      if (priceEl && changeEl) {
+        priceEl.textContent = newPrice.toFixed(2);
+
+        // Flash animation
+        if (change > 0) {
+          card.classList.add('price-up');
+          changeEl.textContent = `+${pctChange}%`;
+          changeEl.className = 'pnl-positive';
+        } else {
+          card.classList.add('price-down');
+          changeEl.textContent = `${pctChange}%`;
+          changeEl.className = 'pnl-negative';
+        }
+
+        setTimeout(() => {
+          card.classList.remove('price-up', 'price-down');
+        }, 1000);
+      }
+    }, 2000 + Math.random() * 1000);
+  });
+}
+
+// Update order book visualization
+function updateOrderBook() {
+  // Simulate order book data
+  const generateLevels = (count, basePrice, isAsk) => {
+    const levels = [];
+    for (let i = 0; i < count; i++) {
+      const priceOffset = isAsk ? (i + 1) * 10 : -(i + 1) * 10;
+      const price = basePrice + priceOffset;
+      const size = Math.random() * 2 + 0.1;
+      const total = size * price;
+      levels.push({ price: price.toFixed(2), size: size.toFixed(4), total: total.toFixed(2) });
+    }
+    return levels;
+  };
+
+  const basePrice = 50000;
+  const asks = generateLevels(8, basePrice, true).reverse();
+  const bids = generateLevels(8, basePrice, false);
+
+  // Render asks (highest first)
+  document.getElementById('order-book-asks').innerHTML = `
+    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600">ASKS (Sell Orders)</div>
+    ${asks.map((level, i) => {
+      const maxSize = Math.max(...asks.map(a => parseFloat(a.size)));
+      const width = (parseFloat(level.size) / maxSize * 100).toFixed(0);
+      return `
+        <div class="level">
+          <div class="depth-bar" style="width:${width}%"></div>
+          <span class="price">${level.price}</span>
+          <span style="margin-left:auto;color:var(--text-secondary)">${level.size}</span>
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  // Render bids
+  document.getElementById('order-book-bids').innerHTML = `
+    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;font-weight:600">BIDS (Buy Orders)</div>
+    ${bids.map((level, i) => {
+      const maxSize = Math.max(...bids.map(b => parseFloat(b.size)));
+      const width = (parseFloat(level.size) / maxSize * 100).toFixed(0);
+      return `
+        <div class="level">
+          <div class="depth-bar" style="width:${width}%"></div>
+          <span class="price">${level.price}</span>
+          <span style="margin-left:auto;color:var(--text-secondary)">${level.size}</span>
+        </div>
+      `;
+    }).join('')}
+  `;
+
+  // Update every 3 seconds
+  setTimeout(updateOrderBook, 3000);
+}
+
+// Update PnL leaderboard
+function updatePnLLeaderboard() {
+  api('/api/agency/agents').then(data => {
+    const agentsWithPnl = data.agents.map(a => ({
+      ...a,
+      pnl: a.pnl || (Math.random() * 1000 - 500).toFixed(2)
+    })).sort((a, b) => parseFloat(b.pnl) - parseFloat(a.pnl));
+
+    document.getElementById('pnl-leaderboard').innerHTML = agentsWithPnl.map(a => {
+      const pnl = parseFloat(a.pnl);
+      const pnlClass = pnl > 0 ? 'pnl-positive' : pnl < 0 ? 'pnl-negative' : 'pnl-neutral';
+      const statusClass = a.status === 'active' ? 'active' : a.status === 'paused' ? 'paused' : 'stopped';
+
+      return `
+        <tr>
+          <td><strong>${a.name}</strong></td>
+          <td class="${pnlClass}" style="font-weight:700">${pnl > 0 ? '+' : ''}$${a.pnl}</td>
+          <td><span class="status-indicator ${statusClass}">${a.status}</span></td>
+        </tr>
+      `;
+    }).join('');
+  });
+}
+
+// Load catalog (tools + MCP)
+async function loadCatalog() {
+  if (catalogData) return renderCatalog(catalogData);
+  catalogData = await api('/api/agency/catalog');
+  renderCatalog(catalogData);
+}
+
+// === Personas (Claude Code powered) ===
+
+function _personaAge(s) {
+  if (s == null) return '—';
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.round(s / 60) + 'm';
+  if (s < 86400) return Math.round(s / 3600) + 'h';
+  return Math.round(s / 86400) + 'd';
+}
+
+function _personaSignBadge(valid) {
+  if (valid === true) return '<span style="color:#22C55E;font-weight:700">✓ valid</span>';
+  if (valid === false) return '<span style="color:#EF4444;font-weight:700">✗ BAD</span>';
+  return '<span style="color:#6B7280">—</span>';
+}
+
+function _personaRunBtn(agent_id) {
+  return `<button class="btn btn-sm" onclick="runOnePersona('${agent_id}')">▶ Run</button>`;
+}
+
+async function loadPersonas() {
+  const status = await api('/api/agency/personas/all/status');
+  const totalEl = document.getElementById('personas-total');
+  if (totalEl) totalEl.textContent = status.count || '...';
+  const tbody = document.getElementById('personas-table');
+  if (!status.personas || !status.personas.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9CA3AF">No personas yet — run the runner</td></tr>';
+    return;
+  }
+  tbody.innerHTML = status.personas.map(p => {
+    const sig = p.latest ? p.latest.signature_valid : null;
+    const age = p.latest ? p.latest.age_s : null;
+    const ts = p.latest ? (p.latest.timestamp_iso || '').replace('T', ' ').replace(/\..+$/, '') : '—';
+    const dot = p.fresh ? '<span style="color:#22C55E">●</span>' : '<span style="color:#F59E0B">●</span>';
+    return `
+      <tr>
+        <td><a href="#" onclick="loadPersonaDetail('${p.agent_id}');return false" style="color:#60A5FA;font-weight:600">${dot} ${p.name || p.agent_id}</a></td>
+        <td style="color:#9CA3AF;font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis">${(p.purpose || '').slice(0, 80)}</td>
+        <td style="font-family:monospace;font-size:11px">${ts}</td>
+        <td>${_personaAge(age)}</td>
+        <td>${_personaSignBadge(sig)}</td>
+        <td>${_personaRunBtn(p.agent_id)}</td>
+      </tr>
+    `;
+  }).join('');
+  const academyQueue = status.latest && status.latest.kimi_academy_queue ? status.latest.kimi_academy_queue : [];
+  document.getElementById('personas-summary').innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="stat-card" style="flex:0 0 auto"><div class="label">Total</div><div class="value">${status.count}</div></div>
+      <div class="stat-card" style="flex:0 0 auto"><div class="label">Fresh (&lt;30m)</div><div class="value" style="color:#22C55E">${status.fresh_count}</div></div>
+      <div class="stat-card" style="flex:0 0 auto"><div class="label">Stale</div><div class="value" style="color:#F59E0B">${status.stale_count}</div></div>
+      <div class="stat-card" style="flex:0 0 auto"><div class="label">Executor</div><div class="value" style="font-size:14px">${status.executor}</div></div>
+    </div>
+    ${academyQueue.length ? `<div style="background:var(--bg-input);border:1px solid var(--border-primary);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-weight:600;margin-bottom:6px">🎓 Kimi Academy Queue</div>
+      <p style="margin:0 0 8px 0;font-size:12px;color:var(--text-secondary)">${academyQueue.length} agent${academyQueue.length === 1 ? '' : 's'} flagged for education</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${academyQueue.map(id => `<span class="badge tool" style="cursor:pointer" onclick="loadPersonaDetail('${id}')">${id}</span>`).join('')}</div>
+    </div>` : ''}
+  `;
+  document.getElementById('personas-freshness').innerHTML =
+    `<span style="color:#9CA3AF;font-size:12px">Updated ${new Date(status.checked_at).toLocaleTimeString()}</span>`;
+}
+
+async function loadPersonaDetail(agent_id) {
+  document.getElementById('persona-detail-name').textContent = agent_id;
+  const [status, artifacts, education] = await Promise.all([
+    api(`/api/agency/personas/${agent_id}/status`),
+    api(`/api/agency/personas/${agent_id}/artifacts?limit=3`),
+    api(`/api/agency/personas/${agent_id}/education`).catch(() => null),
+  ]);
+  const det = document.getElementById('persona-detail');
+  if (!status.latest) {
+    det.innerHTML = '<p style="color:#9CA3AF">No artifacts yet — click ▶ Run</p>';
+    return;
+  }
+  const lat = status.latest;
+  det.innerHTML = `
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px">
+      <div><div style="color:#9CA3AF;font-size:11px">Task</div><div style="font-weight:600">${lat.task || '—'}</div></div>
+      <div><div style="color:#9CA3AF;font-size:11px">Executor</div><div style="font-family:monospace;font-size:12px">${lat.executor || '—'}</div></div>
+      <div><div style="color:#9CA3AF;font-size:11px">Size</div><div>${lat.size_bytes} bytes</div></div>
+      <div><div style="color:#9CA3AF;font-size:11px">Age</div><div>${_personaAge(lat.age_s)}</div></div>
+      <div><div style="color:#9CA3AF;font-size:11px">Signature</div><div>${_personaSignBadge(lat.signature_valid)}</div></div>
+    </div>
+    <div style="background:#0a0a0a;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;color:#D1D5DB;overflow-x:auto;white-space:pre-wrap;word-break:break-all">
+${(lat.content_preview || '').slice(0, 1200).replace(/</g, '&lt;')}
+    </div>
+    <div style="margin-top:8px;color:#9CA3AF;font-size:11px">
+      content_sha256: <span style="font-family:monospace">${lat.content_sha256 || '—'}</span><br>
+      artifact_sha256: <span style="font-family:monospace">${lat.artifact_sha256 || '—'}</span><br>
+      path: <span style="font-family:monospace">${lat.path || '—'}</span>
+    </div>
+    ${education && education.education && education.education.recommendations ? `
+    <h4 style="margin-top:18px">🎓 Kimi Academy Recommendations</h4>
+    <div style="background:var(--bg-input);border-radius:8px;padding:12px;margin-bottom:12px">
+      ${education.education.recommendations.length ? `<ul style="margin:0;padding-left:18px">${education.education.recommendations.map(r => `<li><strong>${r.tool}</strong> — ${r.reason}</li>`).join('')}</ul>` : '<p style="color:var(--text-secondary);margin:0">No new tool recommendations.</p>'}
+      ${education.education.learning_plan.length ? `<p style="margin-top:8px;color:var(--text-secondary);font-size:12px">📚 Learning plan: ${education.education.learning_plan.join('; ')}</p>` : ''}
+    </div>
+    ` : ''}
+    <h4 style="margin-top:18px">Recent Artifacts</h4>
+    <table>
+      <thead><tr><th>When</th><th>Task</th><th>Sign</th></tr></thead>
+      <tbody>${(artifacts.artifacts || []).map(a => `
+        <tr>
+          <td style="font-family:monospace;font-size:11px">${(a.timestamp_iso || '').replace('T', ' ').replace(/\..+$/, '')}</td>
+          <td style="font-size:12px">${(a.task || '').slice(0, 80)}</td>
+          <td>${_personaSignBadge(a.signature_valid)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>
+  `;
+}
+
+async function runOnePersona(agent_id) {
+  const slug = agent_id.replace(/^agt_/, '').replace(/_\d+$/, '').replace(/_/g, '');
+  toast(`Running ${agent_id}…`);
+  try {
+    const r = await api(`/api/agency/personas/run?slug=${slug}`, { method: 'POST' });
+    if (r.ok) {
+      toast(`✓ ${agent_id} done`, 'success');
+      loadPersonas();
+      if (document.getElementById('persona-detail-name').textContent === agent_id) {
+        loadPersonaDetail(agent_id);
+      }
+    } else {
+      toast(`✗ ${agent_id} failed: ${r.error || r.stderr_tail || 'unknown'}`, 'error');
+    }
+  } catch (e) {
+    toast(`✗ ${agent_id} error: ${e.message}`, 'error');
+  }
+}
+
+async function runAllPersonas() {
+  toast('Running all personas…');
+  try {
+    const r = await api('/api/agency/personas/run?all=true', { method: 'POST' });
+    if (r.ok) {
+      toast('✓ All personas ran', 'success');
+      loadPersonas();
+    } else {
+      toast(`✗ run failed: ${r.error || r.stderr_tail || 'unknown'}`, 'error');
+    }
+  } catch (e) {
+    toast(`✗ run error: ${e.message}`, 'error');
+  }
+}
+
+// === Connectors (Accio Bridge) ===
+const LIVE_SENDERS = new Set(['telegram', 'discord', 'slack', 'email']);
+
+async function loadConnectors() {
+  setFreshness('connectors-freshness', null);
+  let data;
+  try {
+    data = await api('/api/agency/connectors');
+  } catch (e) {
+    document.getElementById('connectors-summary').innerHTML =
+      '<div class="text-muted">Accio Bridge not reachable — start it with <code>pm2 start accio-bridge</code></div>';
+    document.getElementById('connectors-table').innerHTML = '';
+    return;
+  }
+  if (!data || data.error) {
+    document.getElementById('connectors-summary').innerHTML =
+      '<div class="text-muted">Accio Bridge not reachable — start it with <code>pm2 start accio-bridge</code></div>';
+    document.getElementById('connectors-table').innerHTML = '';
+    return;
+  }
+  const liveCount = data.connectors.filter(c => LIVE_SENDERS.has(c.id)).length;
+  const loaded = data.connectors.filter(c => c.class_loaded).length;
+  document.getElementById('connectors-summary').innerHTML = `
+    <div class="stats">
+      <div class="stat-card"><div class="label">Channels</div><div class="value">${data.count}</div><div class="sub">${loaded} class-loaded</div></div>
+      <div class="stat-card"><div class="label">Live Senders</div><div class="value">${liveCount}</div><div class="sub">Telegram, Discord, Slack, Email</div></div>
+      <div class="stat-card"><div class="label">N8N Workflows</div><div class="value">15</div><div class="sub">registered &amp; active</div></div>
+      <div class="stat-card"><div class="label">MCP tools</div><div class="value">5</div><div class="sub">accio_*</div></div>
+    </div>
+  `;
+  const rows = data.connectors.map(c => {
+    const live = LIVE_SENDERS.has(c.id) ? '<span style="color:#10b981">✓ live</span>' : '<span style="color:#6b7280">stub</span>';
+    const n8n = `<code>/webhook/accio-${c.id}</code>`;
+    return `<tr>
+      <td><b>${c.id}</b></td>
+      <td><code>${c.class || '—'}</code></td>
+      <td>${c.enabled ? '✓' : '—'}</td>
+      <td>${c.has_creds ? '✓' : '—'}</td>
+      <td>${live}</td>
+      <td>${n8n}</td>
+      <td><button class="btn btn-sm" onclick="probeConnector('${c.id}')">ping</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('connectors-table').innerHTML = rows;
+  setFreshness('connectors-freshness', new Date());
+}
+
+async function probeConnector(id) {
+  const d = await api(`/api/agency/connectors/${id}/status`);
+  toast(`${id}: class=${d.probe?.class || '—'} module=${d.probe?.module || '—'}`,
+    d.probe?.ok ? 'success' : 'error');
+}
+
+
+function renderCatalog(data) {
+  // Tools stats
+  const cats = {};
+  Object.entries(data.tools).forEach(([name, t]) => {
+    const cat = t.schemas?.[0]?.name?.split('_')[0] || 'general';
+    cats[cat] = (cats[cat] || 0) + 1;
+  });
+
+  if (document.getElementById('tools-stats')) {
+    document.getElementById('tools-stats').innerHTML = `
+      <div class="stat-card"><div class="label">Total Tools</div><div class="value">${Object.keys(data.tools).length}</div></div>
+      <div class="stat-card"><div class="label">Categories</div><div class="value">${Object.keys(cats).length}</div></div>
+      <div class="stat-card"><div class="label">MCP Servers</div><div class="value">${(data.mcp_servers || []).length}</div></div>
+      <div class="stat-card"><div class="label">Functions</div><div class="value">${Object.values(data.tools).reduce((s, t) => s + (t.schemas?.length || 0), 0)}</div></div>
+    `;
+  }
+
+  // Tools table
+  if (document.getElementById('tools-table')) {
+    document.getElementById('tools-table').innerHTML = Object.entries(data.tools).map(([name, t]) => `
+      <tr>
+        <td><strong>${name}</strong></td>
+        <td><span class="badge tool">${name}</span></td>
+        <td>${t.description}</td>
+        <td>${(t.schemas || []).map(s => `<code style="font-size:10px;color:var(--accent);font-family:var(--font-mono)">${s.name}</code>`).join(', ')}</td>
+        <td>${t.schemas?.[0]?.name?.startsWith('mcp_') ? '🔌' : '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Provision tool selection
+  const toolGrid = document.getElementById('tool-selection');
+  if (toolGrid && !toolGrid.children.length) {
+    toolGrid.innerHTML = Object.entries(data.tools).map(([name, t]) => `
+      <label class="tool-check" onclick="this.classList.toggle('selected');this.querySelector('input').checked=this.classList.contains('selected')">
+        <input type="checkbox" value="${name}" ${['web', 'memory', 'code'].includes(name) ? 'checked' : ''}>
+        <div class="check"></div>
+        <div class="info">
+          <div class="name">${name}</div>
+          <div class="desc">${t.description?.substring(0, 40) || ''}</div>
+        </div>
+      </label>
+    `).join('');
+    // Mark default selected
+    toolGrid.querySelectorAll('.tool-check').forEach(el => {
+      if (el.querySelector('input').checked) el.classList.add('selected');
+    });
+  }
+
+  // MCP selection
+  const mcpSel = document.getElementById('mcp-selection');
+  if (mcpSel && !mcpSel.children.length) {
+    mcpSel.innerHTML = (data.mcp_servers || []).map(s => `
+      <label class="tool-check" style="width:auto" onclick="this.classList.toggle('selected');this.querySelector('input').checked=this.classList.contains('selected')">
+        <input type="checkbox" value="${s.name}">
+        <div class="check"></div>
+        <div class="info"><div class="name">${s.name}</div></div>
+      </label>
+    `).join('');
+  }
+
+  // MCP page
+  if (document.getElementById('mcp-grid')) {
+    document.getElementById('mcp-grid').innerHTML = (data.mcp_servers || []).map(s => `
+      <div class="mcp-card animate">
+        <div class="mcp-header">
+          <div class="icon">🔌</div>
+          <div class="name">${s.name || 'Unknown'}</div>
+        </div>
+        <div class="mcp-url">${s.url || s.command || 'N/A'}</div>
+        <div class="mcp-desc">${s.description || 'No description'}</div>
+        <div class="mcp-status"><div class="dot" style="background:var(--success)"></div> Connected</div>
+      </div>
+    `).join('');
+  }
+}
+
+let PLAN_INFO = {};
+
+async function loadPlans() {
+  try {
+    const data = await api('/api/agency/billing/plans');
+    const plans = data.plans || {};
+    PLAN_INFO = { free: { price: 0, label: 'Free — test only', desc: 'Limited tools & usage' } };
+    Object.entries(plans).forEach(([key, plan]) => {
+      const priceUsd = plan.price_monthly_usd || 0;
+      const name = plan.name || key;
+      const messages = plan.messages_limit === -1 ? 'unlimited' : `${plan.messages_limit.toLocaleString()}`;
+      const agents = plan.agents_limit === -1 ? 'unlimited' : `${plan.agents_limit}`;
+      PLAN_INFO[key] = {
+        price: priceUsd / 100,
+        label: name,
+        desc: `${agents} agent${agents === '1' ? '' : 's'} • ${messages} messages/mo • ${plan.tools_limit || 29} tools`,
+      };
+    });
+    // Update option labels with live prices
+    const select = document.getElementById('prov-plan');
+    if (select) {
+      [...select.options].forEach(opt => {
+        if (opt.value === 'free') return;
+        const info = PLAN_INFO[opt.value];
+        if (info) {
+          opt.textContent = `${info.label} ($${info.price.toFixed(0)}/mo)`;
+        }
+      });
+    }
+    updatePlanPrice();
+  } catch (e) {
+    console.error('Failed to load plans:', e);
+  }
+}
+
+function updatePlanPrice() {
+  const plan = document.getElementById('prov-plan').value;
+  const interval = document.getElementById('prov-interval').value;
+  const info = PLAN_INFO[plan] || { desc: '' };
+  const yearlyMult = interval === 'yearly' ? 10 : 1;
+  const priceText = plan === 'free' ? info.desc : `$${(info.price * yearlyMult).toFixed(0)}/mo billed ${interval}`;
+  document.getElementById('plan-price').textContent = priceText;
+}
+
+// Provision agent
+async function provisionAgent() {
+  const name = document.getElementById('prov-name').value.trim();
+  const purpose = document.getElementById('prov-purpose').value.trim();
+  if (!name || !purpose) { toast('Name and purpose are required', 'error'); return; }
+
+  const tools = [...document.querySelectorAll('#tool-selection input:checked')].map(i => i.value);
+  const mcp = [...document.querySelectorAll('#mcp-selection input:checked')].map(i => i.value);
+  const model = document.getElementById('prov-model').value;
+  const email = document.getElementById('prov-email').value.trim();
+  const prompt = document.getElementById('prov-prompt').value.trim();
+
+  const plan = document.getElementById('prov-plan').value;
+  const interval = document.getElementById('prov-interval').value;
+
+  const btn = document.querySelector('#page-provision .btn-primary');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '🚀 Creating…';
+
+  try {
+    const result = await api('/api/agency/agents', {
+      method: 'POST',
+      body: JSON.stringify({
+        name, purpose, tools,
+        model,
+        owner_email: email || undefined,
+        system_prompt: prompt || undefined,
+        mcp_servers: mcp.length ? mcp : undefined,
+      }),
+    });
+
+    if (result.error) {
+      toast(result.error, 'error');
+      return;
+    }
+
+    // If paid plan selected, create Stripe checkout via MCP and redirect
+    let checkoutInfo = '';
+    if (plan !== 'free') {
+      toast('Creating Stripe checkout…');
+      const checkout = await api(`/api/agency/agents/${result.agent_id}/checkout`, {
+        method: 'POST',
+        body: JSON.stringify({ plan_id: plan, interval, customer_email: email || undefined }),
+      });
+      if (checkout.error) {
+        toast('Agent created, but checkout failed: ' + checkout.error, 'error');
+      } else if (checkout.url) {
+        checkoutInfo = `<div class="webhook-box" style="border-color:var(--success)">
+          <span>Plan: <strong>${PLAN_INFO[plan].label}</strong> (${interval})</span>
+          <span class="copy-btn" onclick="window.open('${checkout.url}', '_blank')">💳 Pay with Stripe</span>
+        </div>`;
+        setTimeout(() => window.open(checkout.url, '_blank'), 500);
+      }
+    }
+
+    const div = document.getElementById('prov-result');
+    div.classList.add('show');
+    document.getElementById('prov-result-content').innerHTML = `
+      ${checkoutInfo}
+      <div class="webhook-box">
+        <span>Status: <strong>${plan === 'free' ? 'Free plan' : 'Pending payment'}</strong></span>
+      </div>
+      <div class="webhook-box">
+        <span>Webhook: <strong>${result.webhook_url}</strong></span>
+        <span class="copy-btn" onclick="copyText('${window.location.origin}${result.webhook_url}')">📋 Copy Full URL</span>
+      </div>
+      <div class="webhook-box">
+        <span>API Key: <strong>${result.api_key_masked || 'hidden on server'}</strong></span>
+        <span class="copy-btn" onclick="toast('API key stays server-side')">🔒 Hidden</span>
+      </div>
+      <div class="webhook-box">
+        <span>Chat UI: <strong><a href="/chat/${result.agent_id}" style="color:var(--primary)">${window.location.origin}/chat/${result.agent_id}</a></strong></span>
+      </div>
+      <p style="margin-top:12px;font-size:12px;color:var(--text-secondary)">
+        Agent ID: <code style="color:var(--accent)">${result.agent_id}</code> | Tools: ${result.tools.map(t => `<span class="badge tool">${t}</span>`).join('')} | Model: ${result.model}
+      </p>
+      <div style="margin-top:16px;display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="openChat('${result.agent_id}','${result.name}')">💬 Test Agent</button>
+        <button class="btn btn-ghost" onclick="copyText('${window.location.origin}/chat/${result.agent_id}')">📋 Copy Chat URL</button>
+      </div>
+    `;
+    toast(`Agent "${result.name}" created!`);
+  } catch (e) {
+    toast('Provisioning failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// Agent actions
+async function pauseAgent(id) {
+  await api(`/api/agency/agents/${id}/pause`, { method: 'POST' });
+  toast('Agent paused');
+  loadOverview(); loadAgents();
+}
+
+async function resumeAgent(id) {
+  await api(`/api/agency/agents/${id}/resume`, { method: 'POST' });
+  toast('Agent resumed');
+  loadOverview(); loadAgents();
+}
+
+async function copyWebhook(id) {
+  const agent = await api(`/api/agency/agents/${id}`);
+  copyText(agent.webhook_url ? `${window.location.origin}${agent.webhook_url}` : `${window.location.origin}/webhook/${id}/${agent.webhook_token || 'TOKEN'}`);
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text);
+  toast('Copied to clipboard!');
+}
+
+// Chat
+function openChat(agentId, name) {
+  currentAgent = agentId;
+  document.getElementById('chat-agent-name').textContent = `💬 ${name}`;
+  document.getElementById('chat-messages').innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:40px">Start a conversation...</div>';
+  document.getElementById('chat-panel').classList.add('open');
+  document.getElementById('chat-input').focus();
+}
+
+function closeChat() {
+  document.getElementById('chat-panel').classList.remove('open');
+  currentAgent = null;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg || !currentAgent) return;
+  input.value = '';
+
+  const messages = document.getElementById('chat-messages');
+  if (messages.querySelector('div[style]')) messages.innerHTML = '';
+
+  messages.innerHTML += `<div class="msg user">${escapeHtml(msg)}</div>`;
+  messages.innerHTML += `<div class="msg assistant" id="thinking"><div class="agent-name">thinking...</div>⏳ Processing...</div>`;
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const resp = await fetch(`${API}/api/agency/agents/${currentAgent}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
+    });
+    const data = await resp.json();
+    document.getElementById('thinking')?.remove();
+
+    let toolInfo = '';
+    if (data.tool_calls?.length) {
+      toolInfo = `<div class="tools-used">🔧 Used: ${data.tool_calls.map(t => t.tool).join(', ')}</div>`;
+    }
+
+    messages.innerHTML += `<div class="msg assistant">
+      <div class="agent-name">${data.agent_name || 'Agent'}</div>
+      ${formatContent(data.content || data.error || 'No response')}
+      ${toolInfo}
+    </div>`;
+    messages.scrollTop = messages.scrollHeight;
+  } catch (e) {
+    document.getElementById('thinking')?.remove();
+    messages.innerHTML += `<div class="msg assistant" style="color:var(--danger)">Error: ${e.message}</div>`;
+  }
+}
+
+function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatContent(t) {
+  return escapeHtml(t).replace(/```(\w*)\n([\s\S]*?)```/g, '<pre style="background:var(--bg-input);padding:8px;border-radius:var(--radius-md);margin:8px 0;overflow-x:auto;font-family:var(--font-mono)"><code>$2</code></pre>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+// Mobile sidebar
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.sidebar-overlay');
+  const btn = document.getElementById('hamburger-btn');
+  const isOpen = sidebar.classList.toggle('open');
+  overlay.classList.toggle('open', isOpen);
+  if (btn) btn.setAttribute('aria-expanded', String(isOpen));
+}
+
+function closeSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.querySelector('.sidebar-overlay');
+  const btn = document.getElementById('hamburger-btn');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+// Close sidebar on window resize to desktop
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) closeSidebar();
+});
+
+// Init
+checkAuth().then(ok => {
+  if (ok) {
+    loadOverview();
+    loadPlans();
+  }
+});
+</script>
+</body>
+</html>

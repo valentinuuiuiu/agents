@@ -275,13 +275,82 @@ class ChatService:
     Example:
         from chat_service import ChatService
         svc = ChatService(provisioner)
-        reply = await svc.run_agent_chat(agent_id, "What's the weather?")
+        reply = await svc.run_agent_chat(agent_id, \"What's the weather?\")
     """
 
     def __init__(self, provisioner=None, registry=None):
         self.provisioner = provisioner
         self.registry = registry or get_registry()
         self._demo_usage: Dict[str, Dict] = {}
+        # Connection pool — reuse TCP connections for long-running server
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._session_lock = asyncio.Lock()
+        # Per-agent conversation memory (sliding window)
+        # { agent_id: {"messages": [...], "last_access": timestamp} }
+        self._conversations: Dict[str, Dict] = {}
+        self._conv_lock = asyncio.Lock()
+        self._max_history = int(os.environ.get("AGENT_HISTORY_SIZE", "20"))
+        self._history_ttl = int(os.environ.get("AGENT_HISTORY_TTL_SECONDS", "3600"))  # 1 hour
+
+    async def _get_conversation(self, agent_id: str) -> List[Dict]:
+        """Get sliding-window conversation history for an agent."""
+        async with self._conv_lock:
+            conv = self._conversations.get(agent_id)
+            if conv is None:
+                return []
+            now = time.time()
+            if now - conv["last_access"] > self._history_ttl:
+                del self._conversations[agent_id]
+                return []
+            conv["last_access"] = now
+            return list(conv["messages"])
+
+    async def _append_conversation(self, agent_id: str, message: Dict):
+        """Append a message to the conversation and trim old entries."""
+        async with self._conv_lock:
+            conv = self._conversations.get(agent_id)
+            if conv is None:
+                self._conversations[agent_id] = conv = {"messages": [], "last_access": time.time()}
+            conv["messages"].append(message)
+            conv["last_access"] = time.time()
+            # Keep only the last N messages
+            if len(conv["messages"]) > self._max_memory_messages():
+                conv["messages"] = conv["messages"][-self._max_memory_messages():]
+
+    def _max_memory_messages(self):
+        """Calculate total messages to keep (user + assistant pairs)."""
+        return max(4, self._max_history * 2)
+
+    async def gc_conversations(self):
+        """Clean up stale conversations (call periodically from server)."""
+        async with self._conv_lock:
+            now = time.time()
+            stale = [aid for aid, cv in self._conversations.items()
+                     if now - cv["last_access"] > self._history_ttl]
+            for aid in stale:
+                del self._conversations[aid]
+            if stale:
+                logger.info(f"chat_service GC: removed {len(stale)} expired conversations")
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create a long-lived aiohttp session (connection pooling)."""
+        if self._session is None or self._session.closed:
+            async with self._session_lock:
+                if self._session is None or self._session.closed:
+                    connector = aiohttp.TCPConnector(
+                        limit=50,                   # Max concurrent connections
+                        limit_per_host=20,          # Per-host limit
+                        ttl_dns_cache=300,           # DNS cache TTL
+                        keepalive_timeout=60,        # TCP keepalive
+                        force_close=False,           # Reuse connections
+                    )
+                    timeout = aiohttp.ClientTimeout(total=120, connect=10, sock_read=90)
+                    self._session = aiohttp.ClientSession(
+                        connector=connector,
+                        timeout=timeout,
+                    )
+                    logger.info("chat_service: created new HTTP session pool")
+        return self._session
 
     # --- public API ------------------------------------------------------
     async def run_agent_chat(self, agent_id: str, message: str,
@@ -330,8 +399,10 @@ class ChatService:
                              agent_id: str, log: bool) -> Dict:
         tools = parse_tools(agent.get("tools", ""))
         if log:
-            ok, reason = self.provisioner.check_plan_limits(agent_id, requested_tools=tools) \
-                if self.provisioner else (True, "")
+            # check_plan_limits lives in billing.py (not on AgentProvisioner).
+            # Lazy import avoids any module-import-order coupling.
+            from billing import check_plan_limits
+            ok, reason = check_plan_limits(agent_id, requested_tools=tools)
             if not ok:
                 return {"error": reason, "agent_id": agent_id, "role": "error"}
 
@@ -350,65 +421,67 @@ class ChatService:
         api_key = os.environ.get("OPENAI_API_KEY", "***")
         model = _resolve_model(agent.get("model", ""))
 
+        # Use shared session pool for connection reuse on long runs
+        session = await self._get_session()
+
         try:
-            async with aiohttp.ClientSession() as session:
-                req_body = {
-                    "model": model,
-                    "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 2000,
-                }
-                if openai_tools:
-                    req_body["tools"] = openai_tools
-                    req_body["tool_choice"] = "auto"
+            req_body = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2000,
+            }
+            if openai_tools:
+                req_body["tools"] = openai_tools
+                req_body["tool_choice"] = "auto"
 
-                llm_resp = await self._llm_chat_completion(session, proxy_url, api_key, req_body)
-                content = llm_resp["content"]
-                tool_calls = llm_resp["tool_calls"]
+            llm_resp = await self._llm_chat_completion(session, proxy_url, api_key, req_body)
+            content = llm_resp["content"]
+            tool_calls = llm_resp["tool_calls"]
 
-                has_valid_tool_calls = (
-                    bool(tool_calls) and all(_tc_args_nonempty(tc) for tc in tool_calls)
+            has_valid_tool_calls = (
+                bool(tool_calls) and all(_tc_args_nonempty(tc) for tc in tool_calls)
+            )
+
+            if has_valid_tool_calls:
+                result = await execute_tool_calls(
+                    tool_calls, messages, content, agent,
+                    proxy_url, api_key, model, session, agent_id, openai_tools,
                 )
-
-                if has_valid_tool_calls:
-                    result = await execute_tool_calls(
-                        tool_calls, messages, content, agent,
-                        proxy_url, api_key, model, session, agent_id, openai_tools,
-                    )
-                    if log and self.provisioner:
-                        used_tools = json.dumps([tc["function"]["name"] for tc in tool_calls])
-                        self.provisioner.log_chat(agent_id, "assistant", result["content"], used_tools)
-                    return result
-
-                # Fallback: JSON-in-text tool extraction
-                extracted_tool_calls = _extract_tool_calls(content)
-                if extracted_tool_calls:
-                    fake_tcs = []
-                    for i, call in enumerate(extracted_tool_calls):
-                        args = call.get("args", {})
-                        fake_tcs.append({
-                            "id": f"text_{i}",
-                            "function": {"name": call["tool"], "arguments": json.dumps(args)},
-                        })
-                    result = await execute_tool_calls(
-                        fake_tcs, messages, content, agent,
-                        proxy_url, api_key, model, session, agent_id, openai_tools,
-                    )
-                    if log and self.provisioner:
-                        self.provisioner.log_chat(
-                            agent_id, "assistant", result["content"],
-                            json.dumps([c["tool"] for c in extracted_tool_calls])
-                        )
-                    return result
-
                 if log and self.provisioner:
-                    self.provisioner.log_chat(agent_id, "assistant", content)
-                return {
-                    "role": "assistant",
-                    "content": content,
-                    "agent_id": agent_id,
-                    "agent_name": agent.get("name", ""),
-                }
+                    used_tools = json.dumps([tc["function"]["name"] for tc in tool_calls])
+                    self.provisioner.log_chat(agent_id, "assistant", result["content"], used_tools)
+                return result
+
+            # Fallback: JSON-in-text tool extraction
+            extracted_tool_calls = _extract_tool_calls(content)
+            if extracted_tool_calls:
+                fake_tcs = []
+                for i, call in enumerate(extracted_tool_calls):
+                    args = call.get("args", {})
+                    fake_tcs.append({
+                        "id": f"text_{i}",
+                        "function": {"name": call["tool"], "arguments": json.dumps(args)},
+                    })
+                result = await execute_tool_calls(
+                    fake_tcs, messages, content, agent,
+                    proxy_url, api_key, model, session, agent_id, openai_tools,
+                )
+                if log and self.provisioner:
+                    self.provisioner.log_chat(
+                        agent_id, "assistant", result["content"],
+                        json.dumps([c["tool"] for c in extracted_tool_calls])
+                    )
+                return result
+
+            if log and self.provisioner:
+                self.provisioner.log_chat(agent_id, "assistant", content)
+            return {
+                "role": "assistant",
+                "content": content,
+                "agent_id": agent_id,
+                "agent_name": agent.get("name", ""),
+            }
 
         except Exception as e:
             logger.error(f"Agent chat error: {e}")
