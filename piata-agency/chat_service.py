@@ -291,6 +291,7 @@ class ChatService:
         self._conv_lock = asyncio.Lock()
         self._max_history = int(os.environ.get("AGENT_HISTORY_SIZE", "20"))
         self._history_ttl = int(os.environ.get("AGENT_HISTORY_TTL_SECONDS", "3600"))  # 1 hour
+        self._gc_task: Optional[asyncio.Task] = None
 
     async def _get_conversation(self, agent_id: str) -> List[Dict]:
         """Get sliding-window conversation history for an agent."""
@@ -331,6 +332,24 @@ class ChatService:
                 del self._conversations[aid]
             if stale:
                 logger.info(f"chat_service GC: removed {len(stale)} expired conversations")
+
+    async def _ensure_gc_loop(self):
+        """Start the conversation GC loop on first use (idempotent).
+
+        Runs every 60s so stale conversations don't accumulate in RAM.
+        """
+        if self._gc_task is not None and not self._gc_task.done():
+            return
+
+        async def _loop():
+            while True:
+                try:
+                    await self.gc_conversations()
+                except Exception:
+                    logger.exception("conversation GC error")
+                await asyncio.sleep(60)
+
+        self._gc_task = asyncio.ensure_future(_loop())
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create a long-lived aiohttp session (connection pooling)."""
@@ -409,10 +428,19 @@ class ChatService:
         tool_desc, openai_tools = build_tool_descriptors(tools)
         system_prompt = self._build_system_prompt(agent, tool_desc, openai_tools)
 
+        # In-process conversation memory: when no explicit history is passed,
+        # continue the agent's previous turns from the sliding-window cache so
+        # consecutive dashboard chats stay in context.
+        await self._ensure_gc_loop()
+        memory = await self._get_conversation(agent_id)
         messages = [{"role": "system", "content": system_prompt}]
         if history:
-            messages.extend(history[-20:])
+            # Caller supplied full context (e.g. DB history) — use it as-is.
+            messages.extend(history[-self._max_history:])
+        elif memory:
+            messages.extend(memory[-self._max_history:])
         messages.append({"role": "user", "content": message})
+        await self._append_conversation(agent_id, {"role": "user", "content": message})
 
         if log and self.provisioner:
             self.provisioner.log_chat(agent_id, "user", message)
@@ -448,6 +476,9 @@ class ChatService:
                     tool_calls, messages, content, agent,
                     proxy_url, api_key, model, session, agent_id, openai_tools,
                 )
+                await self._append_conversation(
+                    agent_id, {"role": "assistant", "content": result["content"]}
+                )
                 if log and self.provisioner:
                     used_tools = json.dumps([tc["function"]["name"] for tc in tool_calls])
                     self.provisioner.log_chat(agent_id, "assistant", result["content"], used_tools)
@@ -467,6 +498,9 @@ class ChatService:
                     fake_tcs, messages, content, agent,
                     proxy_url, api_key, model, session, agent_id, openai_tools,
                 )
+                await self._append_conversation(
+                    agent_id, {"role": "assistant", "content": result["content"]}
+                )
                 if log and self.provisioner:
                     self.provisioner.log_chat(
                         agent_id, "assistant", result["content"],
@@ -474,6 +508,7 @@ class ChatService:
                     )
                 return result
 
+            await self._append_conversation(agent_id, {"role": "assistant", "content": content})
             if log and self.provisioner:
                 self.provisioner.log_chat(agent_id, "assistant", content)
             return {
