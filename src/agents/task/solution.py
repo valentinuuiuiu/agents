@@ -97,6 +97,13 @@ class Solution:
             else:
                 assert self.sop.finished == True
                 # TODO: Save environment shared short term memory
+                short_term_memory = self.agent_team.environment.shared_memory[
+                    "short_term_memory"
+                ]
+                long_term_memory = self.agent_team.environment.shared_memory[
+                    "long_term_memory"
+                ]
+                long_term_memory.append_memory_from_short_term_memory(short_term_memory)
 
         if mode == "train":
             return trajectory
